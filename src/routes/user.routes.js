@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { registerUser } from '../controllers/user.controller.js';
+import { loginUser, registerUser } from '../controllers/user.controller.js';
 import upload from '../middlewares/multer.middleware.js'
 const router = Router()
 
@@ -11,16 +11,22 @@ router.route("/register").post(
     ]),
     registerUser
 )
+router.route("/login").post(
+    //  (req,res) =>{ 
+    //     console.log(req.body);
+    //     res.status(200).json({
+    //     data: req.body,
+    //     message:"credential received successfully"
+    // })} ,
+    loginUser
+)
 router.route("/files").post(
-    upload.fields([
-        {name:"coverImage",maxCount:1},
-        {name:"avatar",maxCount:1},
-    ]),
     (req,res)=>{
         console.log("data from react app : ",req.body);
-        console.log("data from react app : ",req.files?.avatar[0]?.path);
-        console.log("data from react app : ",req.files?.coverImage[0]?.path);
-        
+        res.json({
+            message:"received",
+            data:req.body
+        })
     }
 )
 

@@ -44,10 +44,7 @@ const userSchema = new Schema(
         refreshToken: {
             type: String
         }
-    },
-    {
-        timestamps: true
-    }
+    }, { timestamps: true }
 );
 userSchema.pre("save", async function (next) {
     if (!this.isModified("password")) return next()
@@ -66,7 +63,7 @@ userSchema.methods.generateAccessToken = async function () {
         username: this.username,
         fullname: this.fullName,
     },
-        secretOrPrivateKey = process.env.ACCESS_TOKEN_SECRET,
+        process.env.ACCESS_TOKEN_SECRET,
         {
             expiresIn: process.env.ACCESS_TOKEN_EXPIRY
         }
@@ -76,7 +73,7 @@ userSchema.methods.generateRefreshToken = async function () {
     return jwt.sign({
         _id: this._id
     },
-        secretOrPrivateKey = process.env.REFRESH_TOKEN_SECRET,
+        process.env.REFRESH_TOKEN_SECRET,
         {
             expiresIn: process.env.REFRESH_TOKEN_EXPIRY
         }
