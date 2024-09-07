@@ -1,9 +1,8 @@
 class ApiError extends Error{
     constructor(
         statusCode,
-        message= "Something went wrong !!!",
+        message= "Something went wrong !!",
         errors=[],
-        // data,
         stack = ""
     ){
         super(message)
@@ -11,7 +10,11 @@ class ApiError extends Error{
         this.data = null,
         this.message = message,
         this.success = false,
-        this.errors = errors 
+        this.errors = errors ,
+
+        this.status = `${statusCode}`.startsWith("4") ? "fail" : "error",
+        this.isOperational = true
+
         if(stack){
             this.stack = stack
         } else{
