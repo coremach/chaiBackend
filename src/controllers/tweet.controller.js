@@ -88,7 +88,7 @@ const deleteTweet = asyncHandler(async (req, res, next) => {
         }
 
         // Deletes a tweet by its ID.
-        const deleteTweet = await Tweet.deleteOne(new mongoose.Types.ObjectId(tweetId));
+        const deleteTweet = await Tweet.findByIdAndDelete(new mongoose.Types.ObjectId(tweetId));
         // Returns an error if the fetch fails.
         if (!deleteTweet) {
             return next(new ApiError(500, "Something went wrong while deleting tweet from collection in mongoDB"))

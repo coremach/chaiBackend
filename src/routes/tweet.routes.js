@@ -5,7 +5,6 @@ import {
     deleteTweet,
     getUserTweet,
     updateTweet,
-
 } from "../controllers/tweet.controller.js";
 
 
@@ -21,6 +20,5 @@ router.route("/user/:userId")
 router.route("/:tweetId")
     .patch(updateTweet)
     .delete(deleteTweet)
-
 
 export default router;
