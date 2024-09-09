@@ -1,5 +1,6 @@
 import { ApiError } from "./ApiError.js";
 
+// Error Handler for development environment
 const devError = (err, res) => {
     res.status(err.statusCode)
         .json({
@@ -35,12 +36,18 @@ const castErrorHandler = (err) => {
 
 // Handling Duplicate error
 const duplicateErrorHandler = (err) => {
-
     // const value = err.message.match(/(["'])(\\?.)*?\1/)[0];
     const value = err.message.match(/{[^{}]*}/)[0];
     console.log(value);
     const message = `field value: ${value} already exists. Please use another`;
     return new ApiError(400, message)
+}
+
+// Handling validation error
+const validationErrorHandler = (err) =>{
+    const errors = Object.values(err.errors).map((el) => el.message);
+    const message = `Invalid input data. ${errors.join(". ")}`;
+    return new ApiError(400,message)
 }
 
 // Global Error Handler
@@ -56,6 +63,7 @@ const globalErrorHandler = (err, req, res, next) => {
     } else if (process.env.NODE_ENV === "production") {
         if (err.name === "CastError") err = castErrorHandler(err)
         if (err.code === 11000) err = duplicateErrorHandler(err)
+        if (err. name === "ValidationError") err = validationErrorHandler (err);   
         prodError(err, res)
     };
 };

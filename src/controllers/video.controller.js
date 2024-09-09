@@ -3,20 +3,19 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { Video } from "./../models/video.model.js"
+import mongoose, { isValidObjectId } from "mongoose";
 
 
 
 const getAllVideos = asyncHandler(async (req, res, next) => {
-
-    // Todo : write checks for query, userid , fetch from mongodb
-
     try {
         // take query from user
-        const { page = 1, limit = 10, query, sortBy = 'createdAt', sortType = 'desc',userId } = req.query;
+        const { page = 1, limit = 10, query, sortBy = 'createdAt', sortType = 'desc', userId } = req.query;
 
-        // convert page and limit value from string to integer
-        const pageNumber = parseInt(page, 10)
-        const limitNumber = parseInt(limit, 10)
+        // Validate userId if provided
+        if (userId && !mongoose.Types.ObjectId.isValid(userId)) {
+            throw new ApiError(400, 'Invalid user ID');
+        }
 
         // create filter object
         const filter = {}
@@ -28,23 +27,26 @@ const getAllVideos = asyncHandler(async (req, res, next) => {
         if (userId) {
             filter.owner = userId
         }
-        // buold the sort object
-        const sort = {}
-        sort[sortBy] = sortType === 'asc' ? 1 : -1;
+        const aggregate = Video.aggregate([
+            { $match: filter },
+            { $sort: { [sortBy]: sortType === 'asc' ? 1 : -1 } },
+        ])
+        // build the option object
+        const options = {
+            page: parseInt(page),
+            limit: parseInt(limit),
+        }
+
 
         // Fetch videos with pagination, filtering and sorting
-        const allVideo = await Video.find(filter)
-            .sort(sort)
-            .skip((pageNumber - 1) * limitNumber)
-            .limit(limitNumber)
+        const allVideo = await Video.aggregatePaginate(aggregate, options)
+        if (!allVideo) {
+            return next(new ApiError(500, "something went wrong during fetch all video from mongoDB"))
+        }
 
-        // Get total count of videos for pagination
-        const totalVideos = await Video.countDocuments(filter);
+        // console.log(allVideo.docs);
 
-        const vid_name = allVideo.map((video) => [video.title, video._id])
-        // console.log(vid_name, page, pageNumber, filter, totalVideos);
-
-        return res.status(200).json(new ApiResponse(200, vid_name, "get All videos successfull"))
+        return res.status(200).json(new ApiResponse(200, allVideo, "get All videos successfull"))
     } catch (error) {
         console.log({ code: error.statusCode, message: error.message });
         return next(error)
@@ -79,7 +81,7 @@ const publishAVideo = asyncHandler(async (req, res, next) => {
         const upload_Video = await uploadOnCloudinary(videoLocalPath)
         const thumbnail = await uploadOnCloudinary(thumbnailLocalPath)
         if (!upload_Video) {
-            return next(new ApiError(401, "video file is required, cause error during uploading to cloudinary"))
+            return next(new ApiError(500, "video file is required, cause error during uploading to cloudinary"))
         }
         const { url, duration } = upload_Video
 
@@ -95,7 +97,7 @@ const publishAVideo = asyncHandler(async (req, res, next) => {
         const video = await Video.create(temp)
         console.log({ title, description, videoLocalPath, thumbnailLocalPath, duration, url, thumbUrl: thumbnail.url });
 
-        console.log(video);
+        // console.log(video);
         if (!video) {
             return next(new ApiError(500, "Something went wrong during entry of video details in database"))
         }
@@ -109,23 +111,22 @@ const publishAVideo = asyncHandler(async (req, res, next) => {
 
 const deleteVideo = asyncHandler(async (req, res, next) => {
     try {
-
-        const vidExist = await Video.findById(req.params.videoId)
-        console.log(req.params.videoId, vidExist, req.user?._id);
-
-        if (!vidExist) {
-            return next(new ApiError(401, "Video is not in database"))
+        // console.log(req.params.videoId, vidExist, req.user?._id);
+        if (!mongoose.Types.ObjectId.isValid(req.params.videoId)) {
+            return next(new ApiError(400, "Invalid video ID"))
+        }
+        const isVidExist = await Video.findById(req.params.videoId)
+        if (!isVidExist) {
+            return next(new ApiError(500, "Video is not in database"))
         }
 
-        // const vid = await Video.findByIdAndDelete(req.params.VideoId)
-        // if (!vid) {
-        //     return next(new ApiError(401, "Something went wrong while deleting video from mongoDB"))
-        // }
+        const vid = await Video.findByIdAndDelete(req.params.VideoId)
+        if (!vid) {
+            return next(new ApiError(500, "Something went wrong while deleting video from mongoDB"))
+        }
         return res
             .status(200)
-            .json(
-                new ApiResponse(200, vidExist, "video Deleted successfully")
-            )
+            .json(new ApiResponse(200, vidExist, "video Deleted successfully"))
     } catch (error) {
         return next(error)
     }
@@ -134,16 +135,17 @@ const deleteVideo = asyncHandler(async (req, res, next) => {
 const getVideoById = asyncHandler(async (req, res, next) => {
     try {
         const videoId = req.params.videoId
+        if (!mongoose.Types.ObjectId.isValid(videoId)) {
+            return next(new ApiError(400, "Invalid video ID"))
+        }
         const getVideo = await Video.findById(videoId)
-        console.log(getVideo, req.params.videoId);
-
-        if (!getVideo) return next(new ApiError(401, "Videos not found in mongoDB"))
-
+        if (!getVideo) {
+            return next(new ApiError(500, "Videos not found in mongoDB"))
+        }
+        // console.log(getVideo, req.params.videoId);
         return res
             .status(200)
-            .json(
-                new ApiResponse(200, getVideo, "Get all Videos by id successfully")
-            )
+            .json(new ApiResponse(200, getVideo, "Get all Videos by id successfully"))
     } catch (error) {
         return next(error)
     }
@@ -152,21 +154,25 @@ const getVideoById = asyncHandler(async (req, res, next) => {
 const updateVideo = asyncHandler(async (req, res, next) => {
     try {
         const videoId = req.params.videoId;
+        if (!mongoose.Types.ObjectId.isValid(videoId)) {
+            return next(new ApiError(400, "Invalid video ID"))
+        }
         const { title, description } = req.body;
         if (
             [title, description].some((fields) => [undefined, "", null].includes(fields?.trim()))
-        ) return next(new ApiError(401, "All fields title and desciption are required"))
+        ) return next(new ApiError(400, "All fields title and desciption are required"))
 
 
-        console.log(title, description, req.file);
-        const updateThumbnailpath = req.file?.path
-        if (!updateThumbnailpath) return next(new ApiError(401, "new thumbnail local file is empty!"))
-
+        // console.log(title, description, req.file);
+        const updateThumbnailpath = req.file?.path;
+        if (!updateThumbnailpath) {
+            return next(new ApiError(401, "new thumbnail local file is empty!"))
+        }
 
         // upload new thumbnail to cloudinary 
         const thumbnailPath = await uploadOnCloudinary(updateThumbnailpath)
         if (!thumbnailPath) {
-            return next(new ApiError(401, "thumbnail file is required, cause error during uploading to cloudinary"))
+            return next(new ApiError(500, "thumbnail file is required, cause error during uploading to cloudinary"))
         }
         // console.log(title, description, req.file.path, updateThumbnailpath, thumbnailPath.url);
 
@@ -182,7 +188,7 @@ const updateVideo = asyncHandler(async (req, res, next) => {
             { new: true }
         )
         if (!updatedVideo) {
-            return next(new ApiError(401, "Something went wrong during updating in mongoDB"))
+            return next(new ApiError(500, "Something went wrong during updating in mongoDB"))
         }
 
         return res
@@ -200,14 +206,14 @@ const updateVideo = asyncHandler(async (req, res, next) => {
 const togglePublishStatus = asyncHandler(async (req, res, next) => {
     try {
         const videoId = req.params.videoId;
-        if (!videoId) {
-            return next(new ApiError(401, "videoId not found!!"))
+        if (!videoId && !mongoose.Types.ObjectId.isValid(videoId)) {
+            return next(new ApiError(400, "videoId not found or Invalid video id!!"))
         }
         // check video exist or not
         const video = await Video.findById(videoId)
-        if (!video)
-            return next(new ApiError(401, "Something went wrong during finding video in mongoDB"))
-
+        if (!video) {
+            return next(new ApiError(500, "Something went wrong during finding video in mongoDB"))
+        }
         // build status variable and assign value true or false
         const status = video.isPublished === true ? false : true
 
@@ -221,7 +227,7 @@ const togglePublishStatus = asyncHandler(async (req, res, next) => {
             { new: true }
         )
         if (!Published) {
-            return next(new ApiError(401, "Something went wrong during updating isPublish field in mongoDB"))
+            return next(new ApiError(500, "Something went wrong during updating isPublish field in mongoDB"))
         }
 
         return res.status(200).json(new ApiResponse(200, Published, "ispublished done successfully"))
