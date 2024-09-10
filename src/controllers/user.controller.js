@@ -21,7 +21,95 @@ const generateAccessTokenAndRefreshTokens = async (userId) => {
     }
 }
 
+const randomAC = 
+[
+    {
+        "username": "jollyPineapple",
+        "email": "sunnyday123@mail.com",
+        "fullName": "Olivia Thompson",
+        "avatar": "avatar_olivia.jpg",
+        "coverImage": "cover_olivia.jpg",
+        "password": "Qwerty!234"
+    },
+    {
+        "username": "curiousPanda",
+        "email": "panda_lover456@mail.com",
+        "fullName": "Ethan Carter",
+        "avatar": "avatar_ethan.jpg",
+        "coverImage": "cover_ethan.jpg",
+        "password": "Password!789"
+    },
+    {
+        "username": "mysticFalcon",
+        "email": "falcon_watcher789@mail.com",
+        "fullName": "Sophia Martinez",
+        "avatar": "avatar_sophia.jpg",
+        "coverImage": "cover_sophia.jpg",
+        "password": "Secret123!"
+    },
+    {
+        "username": "happyKoala",
+        "email": "koala_friends@mail.com",
+        "fullName": "Liam Johnson",
+        "avatar": "avatar_liam.jpg",
+        "coverImage": "cover_liam.jpg",
+        "password": "Koala!456"
+    },
+    {
+        "username": "braveTiger",
+        "email": "tiger_fan@mail.com",
+        "fullName": "Ava Wilson",
+        "avatar": "avatar_ava.jpg",
+        "coverImage": "cover_ava.jpg",
+        "password": "Roar!789"
+    },
+    {
+        "username": "slyFox",
+        "email": "foxy_buddy@mail.com",
+        "fullName": "Mason Lee",
+        "avatar": "avatar_mason.jpg",
+        "coverImage": "cover_mason.jpg",
+        "password": "Fox!1234"
+    },
+    {
+        "username": "dreamyCloud",
+        "email": "cloudy_sky@mail.com",
+        "fullName": "Isabella Harris",
+        "avatar": "avatar_isabella.jpg",
+        "coverImage": "cover_isabella.jpg",
+        "password": "Cloud!4567"
+    },
+    {
+        "username": "wittySparrow",
+        "email": "sparrow_song@mail.com",
+        "fullName": "Noah Brown",
+        "avatar": "avatar_noah.jpg",
+        "coverImage": "cover_noah.jpg",
+        "password": "Tweet!8910"
+    },
+    {
+        "username": "cheerfulOtter",
+        "email": "otter_buddy@mail.com",
+        "fullName": "Emma Davis",
+        "avatar": "avatar_emma.jpg",
+        "coverImage": "cover_emma.jpg",
+        "password": "Otter!2345"
+    },
+    {
+        "username": "boldHedgehog",
+        "email": "hedgehog_love@mail.com",
+        "fullName": "James Wilson",
+        "avatar": "avatar_james.jpg",
+        "coverImage": "cover_james.jpg",
+        "password": "Hedgehog!6789"
+    }
+]
+
 const registerUser = asyncHandler(async (req, res) => {
+    // Insert random accounts to Register Collection for testing purpuse
+    // const user = await User.insertMany(randomAC)
+    // console.log(user);
+    // process.exit(1)
 
     try {
         // get user details form frontend
@@ -78,7 +166,8 @@ const registerUser = asyncHandler(async (req, res) => {
             coverImage: coverImage.url || coverImage || "",
             password,
         })
-
+        
+        
         // remove password and refresh token field from response
         const createdUser = await User.findById(user._id).select(
             "-password -refreshToken"

@@ -108,7 +108,7 @@ const toggleTweetLike = asyncHandler(async (req, res, next) => {
         }
         // Check Tweet already liked or not
         const isTweetLiked = await Like.findOne({ $tweet: tweetId })
-        if (isTweetLiked) {
+        if (!isTweetLiked) {
             // Insert Tweet id in Like Collection to like a Tweet
             const tweetLike = await Like.create({ tweet: tweetId, likedBy: req.user?._id })
 
