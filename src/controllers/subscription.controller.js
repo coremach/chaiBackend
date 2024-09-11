@@ -17,9 +17,9 @@ const toggleSubscription = asyncHandler(async (req, res, next) => {
             return next(new ApiError(400, "User cannot subscriber his own channel"))
         }
         // Check user already subscriber a chennel or not
-        const isSubscirbed = await Subscription.findOne({ channel: channelId, subscriber: req.user?._id })
-        console.log(isSubscirbed);
-
+        const isSubscirbed = await Subscription.findOne(
+            { channel: channelId, subscriber: req.user?._id }
+        )
         if (!isSubscirbed) {
             // Create a subscription for the user to the specified channel
             const toggleSub = await Subscription.create({
@@ -39,7 +39,6 @@ const toggleSubscription = asyncHandler(async (req, res, next) => {
         if (!unSubscribe) {
             return next(new ApiError(500, "Something went wrong while deleting or unSubsribing"))
         }
-        console.log(unSubscribe);
         // Return a success resposnse with the unSubscribe acknowledge
         return res.status(200).json(new ApiResponse(200, unSubscribe, "UnSubscribe a channel successfully"))
     } catch (error) {

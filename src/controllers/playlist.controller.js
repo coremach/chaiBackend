@@ -111,7 +111,6 @@ const deletePlaylist = asyncHandler(async (req, res, next) => {
         if (!deletePlaylist) {
             return next(new ApiError(500, "Something went wrong while deleting playlist from Playlist Collection"))
         }
-        console.log(deletePlaylist);
 
         // Return a success response with the deletePlaylist
         return res.status(200).json(new ApiResponse(200, deletePlaylist, "Playlist deleted successfully"))
@@ -137,7 +136,6 @@ const addVideoToPlaylist = asyncHandler(async (req, res, next) => {
         playlist.videos.push(new mongoose.Types.ObjectId(videoId))
         await playlist.save()
 
-        console.log(req.params, playlist);
         // Return a success response with updated playlist
         return res.status(200).json(new ApiResponse(200, playlist, "Video added to playlist successfully"))
     } catch (error) {

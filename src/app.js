@@ -45,8 +45,5 @@ app.use("*", (req, _, next) => {
 // global error handler
 app.use(globalErrorHandler)
 
-
-
-
 export default app;
 // http://localhost:8000/api/v1/users/register

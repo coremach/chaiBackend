@@ -144,7 +144,6 @@ const getLikedVideos = asyncHandler(async (req, res, next) => {
 
         // const allLikes = await Like.aggregatePaginate(aggregate, options)
         const response = await Like.aggregatePaginate(likedVideos, options)
-        // console.log("ok", likedVideos, response);
         if (!response) {
             return next(new ApiError(500, "Something went wrong while fetching all liked videos"))
         }

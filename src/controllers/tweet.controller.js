@@ -136,4 +136,3 @@ export {
     deleteTweet,
     getUserTweet,
 }
-asyncHandler, ApiError, ApiResponse, Tweet, mongoose

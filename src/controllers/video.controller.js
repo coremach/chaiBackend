@@ -7,51 +7,7 @@ import mongoose, { isValidObjectId } from "mongoose";
 
 
 
-const getAllVideos = asyncHandler(async (req, res, next) => {
-    try {
-        // take query from user
-        const { page = 1, limit = 10, query, sortBy = 'createdAt', sortType = 'desc', userId } = req.query;
 
-        // Validate userId if provided
-        if (userId && !mongoose.Types.ObjectId.isValid(userId)) {
-            throw new ApiError(400, 'Invalid user ID');
-        }
-
-        // create filter object
-        const filter = {}
-        // filter by title
-        if (query) {
-            filter.title = { $regex: query, $options: 'i' }
-        }
-        // filter by userId
-        if (userId) {
-            filter.owner = userId
-        }
-        const aggregate = Video.aggregate([
-            { $match: filter },
-            { $sort: { [sortBy]: sortType === 'asc' ? 1 : -1 } },
-        ])
-        // build the option object
-        const options = {
-            page: parseInt(page),
-            limit: parseInt(limit),
-        }
-
-
-        // Fetch videos with pagination, filtering and sorting
-        const allVideo = await Video.aggregatePaginate(aggregate, options)
-        if (!allVideo) {
-            return next(new ApiError(500, "something went wrong during fetch all video from mongoDB"))
-        }
-
-        // console.log(allVideo.docs);
-
-        return res.status(200).json(new ApiResponse(200, allVideo, "get All videos successfull"))
-    } catch (error) {
-        console.log({ code: error.statusCode, message: error.message });
-        return next(error)
-    }
-})
 const rand_vid = [
     {
         "title": "The Thrill of the Drive",
@@ -287,46 +243,102 @@ const rand_vid = [
     }
 ]
 
+const getAllVideos = asyncHandler(async (req, res, next) => {
+    try {
+        // Take query parameters from the user
+        const { page = 1, limit = 10, query, sortBy = 'createdAt', sortType = 'desc', userId } = req.query;
+
+        // Validate userId if provided
+        if (userId && !mongoose.Types.ObjectId.isValid(userId)) {
+            throw new ApiError(400, 'Invalid user ID');
+        }
+
+        // Create filter object for querying videos
+        const filter = {};
+
+        // Filter by title if a query is provided
+        if (query) {
+            filter.title = { $regex: query, $options: 'i' }; // Case-insensitive search
+        }
+
+        // Filter by userId if provided
+        if (userId) {
+            filter.owner = userId;
+        }
+
+        // Create an aggregation pipeline for querying videos
+        const aggregate = Video.aggregate([
+            { $match: filter }, // Match documents based on the filter
+            { $sort: { [sortBy]: sortType === 'asc' ? 1 : -1 } }, // Sort based on the specified field and order
+        ]);
+
+        // Build the options object for pagination
+        const options = {
+            page: parseInt(page), // Convert page to an integer
+            limit: parseInt(limit), // Convert limit to an integer
+        };
+
+        // Fetch videos with pagination, filtering, and sorting
+        const allVideo = await Video.aggregatePaginate(aggregate, options);
+
+        // Check if the fetch was successful
+        if (!allVideo) {
+            return next(new ApiError(500, "Something went wrong during fetch all videos from MongoDB"));
+        }
+
+        // Return success response with the fetched videos
+        return res.status(200).json(new ApiResponse(200, allVideo, "Get all videos successfully"));
+
+    } catch (error) {
+        return next(error)
+    }
+})
 
 const publishAVideo = asyncHandler(async (req, res, next) => {
     // const videos = await Video.create(rand_vid)
     // const vid = await Video.updateMany({owner:{$exists :false}}, {$set:{owner:req.user?._id}})
     // console.log(vid);
-    // process.exit(1)
+    // return res.status(200).json({message:"ok",data:vid})
 
     try {
-        // get video details from frontend or user
+        // Get video details from the frontend or user
         const { title, description } = req.body;
-        // validation not empty
+
+        // Validate that title and description are not empty
         if (
             [title, description].some((fields) => [undefined, "", null].includes(fields?.trim()))
         ) {
-            return next(new ApiError(401, "Title and Description fields required"))
+            return next(new ApiError(401, "Title and Description fields required"));
         }
-        // check for video and thumbnail
-        let videoLocalPath
+
+        // Check for video and thumbnail files
+        let videoLocalPath;
         if (req.files && Array.isArray(req.files.videoFile) && req.files.videoFile.length > 0) {
-            videoLocalPath = req.files.videoFile[0].path
+            videoLocalPath = req.files.videoFile[0].path;
         }
-        let thumbnailLocalPath
+
+        let thumbnailLocalPath;
         if (req.files && Array.isArray(req.files.thumbnail) && req.files.thumbnail.length > 0) {
-            thumbnailLocalPath = req.files.thumbnail[0].path
+            thumbnailLocalPath = req.files.thumbnail[0].path;
         }
 
-        // console.log({ title, description,videoLocalPath,thumbnailLocalPath });
-        // validation not empty if empty throw error
+        // Validate that both video and thumbnail paths are provided
         if (!(thumbnailLocalPath && videoLocalPath)) {
-            return next(new ApiError(400, "Video and thumbnail required"))
+            return next(new ApiError(400, "Video and thumbnail required"));
         }
-        // upload file to cloudinary
-        const upload_Video = await uploadOnCloudinary(videoLocalPath)
-        const thumbnail = await uploadOnCloudinary(thumbnailLocalPath)
-        if (!upload_Video) {
-            return next(new ApiError(500, "video file is required, cause error during uploading to cloudinary"))
-        }
-        const { url, duration } = upload_Video
 
-        // create video object for mongoDB - create entry in DB
+        // Upload video and thumbnail files to Cloudinary
+        const upload_Video = await uploadOnCloudinary(videoLocalPath);
+        const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+
+        // Check if video upload was successful
+        if (!upload_Video) {
+            return next(new ApiError(500, "Video file is required, caused error during uploading to Cloudinary"));
+        }
+
+        const { url, duration } = upload_Video;
+
+        // Create video object for MongoDB - create entry in the database
         const temp = {
             title: title,
             description,
@@ -334,40 +346,45 @@ const publishAVideo = asyncHandler(async (req, res, next) => {
             thumbnail: thumbnail.url,
             duration,
             owner: req.user?._id
-        }
-        const video = await Video.create(temp)
+        };
 
-        // console.log({ title, description, videoLocalPath, thumbnailLocalPath, duration, url, thumbUrl: thumbnail.url });
-        // console.log(video);
+        const video = await Video.create(temp);
+
+        // Check if video creation was successful
         if (!video) {
-            return next(new ApiError(500, "Something went wrong during entry of video details in database"))
+            return next(new ApiError(500, "Something went wrong during entry of video details in database"));
         }
 
-        return res.status(200).json(new ApiResponse(200, video, "get All videos successfull"))
+        // Return success response with the created video details
+        return res.status(200).json(new ApiResponse(200, video, "Get all videos successfully"));
+
     } catch (error) {
-        // console.log({ code: error.code, message: error.message, error });
         return next(error);
     }
 })
 
 const deleteVideo = asyncHandler(async (req, res, next) => {
     try {
-        // console.log(req.params.videoId, vidExist, req.user?._id);
+        // Validate the videoId: check if it is a valid MongoDB ObjectId
         if (!mongoose.Types.ObjectId.isValid(req.params.videoId)) {
-            return next(new ApiError(400, "Invalid video ID"))
-        }
-        const isVidExist = await Video.findById(req.params.videoId)
-        if (!isVidExist) {
-            return next(new ApiError(500, "Video is not in database"))
+            return next(new ApiError(400, "Invalid video ID"));
         }
 
-        const vid = await Video.findByIdAndDelete(req.params.VideoId)
-        if (!vid) {
-            return next(new ApiError(500, "Something went wrong while deleting video from mongoDB"))
+        // Check if the video exists in the database
+        const isVidExist = await Video.findById(req.params.videoId);
+        if (!isVidExist) {
+            return next(new ApiError(500, "Video is not in database"));
         }
-        return res
-            .status(200)
-            .json(new ApiResponse(200, vidExist, "video Deleted successfully"))
+
+        // Delete the video from the database using the videoId
+        const vid = await Video.findByIdAndDelete(req.params.videoId);
+        if (!vid) {
+            return next(new ApiError(500, "Something went wrong while deleting video from MongoDB"));
+        }
+
+        // Return success response indicating the video was deleted
+        return res.status(200).json(new ApiResponse(200, vid, "Video deleted successfully"));
+
     } catch (error) {
         return next(error)
     }
@@ -375,18 +392,25 @@ const deleteVideo = asyncHandler(async (req, res, next) => {
 
 const getVideoById = asyncHandler(async (req, res, next) => {
     try {
-        const videoId = req.params.videoId
+        // Get the videoId from the request parameters
+        const videoId = req.params.videoId;
+
+        // Validate the videoId: check if it is a valid MongoDB ObjectId
         if (!mongoose.Types.ObjectId.isValid(videoId)) {
-            return next(new ApiError(400, "Invalid video ID"))
+            return next(new ApiError(400, "Invalid video ID"));
         }
-        const getVideo = await Video.findById(videoId)
+
+        // Fetch the video from the database using the videoId
+        const getVideo = await Video.findById(videoId);
+
+        // Check if the video was found
         if (!getVideo) {
-            return next(new ApiError(500, "Videos not found in mongoDB"))
+            return next(new ApiError(500, "Video not found in MongoDB"));
         }
-        // console.log(getVideo, req.params.videoId);
-        return res
-            .status(200)
-            .json(new ApiResponse(200, getVideo, "Get all Videos by id successfully"))
+
+        // Return success response with the retrieved video details
+        return res.status(200).json(new ApiResponse(200, getVideo, "Get video by ID successfully"));
+
     } catch (error) {
         return next(error)
     }
@@ -394,87 +418,91 @@ const getVideoById = asyncHandler(async (req, res, next) => {
 
 const updateVideo = asyncHandler(async (req, res, next) => {
     try {
+        // Get the videoId from the request parameters
         const videoId = req.params.videoId;
+
+        // Validate the videoId: check if it is a valid MongoDB ObjectId
         if (!mongoose.Types.ObjectId.isValid(videoId)) {
-            return next(new ApiError(400, "Invalid video ID"))
+            return next(new ApiError(400, "Invalid video ID"));
         }
+
+        // Destructure title and description from the request body
         const { title, description } = req.body;
+
+        // Validate that title and description are provided and not empty
         if (
             [title, description].some((fields) => [undefined, "", null].includes(fields?.trim()))
-        ) return next(new ApiError(400, "All fields title and desciption are required"))
+        ) {
+            return next(new ApiError(400, "All fields title and description are required"));
+        }
 
-
-        // console.log(title, description, req.file);
+        // Get the new thumbnail path from the uploaded file
         const updateThumbnailpath = req.file?.path;
+
+        // Check if the thumbnail path is provided
         if (!updateThumbnailpath) {
-            return next(new ApiError(401, "new thumbnail local file is empty!"))
+            return next(new ApiError(401, "New thumbnail local file is empty!"));
         }
 
-        // upload new thumbnail to cloudinary 
-        const thumbnailPath = await uploadOnCloudinary(updateThumbnailpath)
+        // Upload the new thumbnail to Cloudinary
+        const thumbnailPath = await uploadOnCloudinary(updateThumbnailpath);
         if (!thumbnailPath) {
-            return next(new ApiError(500, "thumbnail file is required, cause error during uploading to cloudinary"))
+            return next(new ApiError(500, "Thumbnail file is required, caused error during uploading to Cloudinary"));
         }
-        // console.log(title, description, req.file.path, updateThumbnailpath, thumbnailPath.url);
 
-
-        // update new video details to mongoDB
+        // Update the video details in MongoDB with new title, description, and thumbnail
         const updatedVideo = await Video.findByIdAndUpdate(videoId,
-            {
-                $set: {
-                    title, description,
-                    thumbnail: thumbnailPath.url
-                }
-            },
-            { new: true }
-        )
+            { $set: { title, description, thumbnail: thumbnailPath.url } },
+            { new: true } // Return the updated document
+        );
+
+        // Check if the update was successful
         if (!updatedVideo) {
-            return next(new ApiError(500, "Something went wrong during updating in mongoDB"))
+            return next(new ApiError(500, "Something went wrong during updating in MongoDB"));
         }
 
-        return res
-            .status(200)
-            .json(
-                new ApiResponse(200, updatedVideo, "Video details updated successfully")
-            )
-    } catch (error) {
-        console.log(error.stack);
+        // Return success response with the updated video details
+        return res.status(200).json(new ApiResponse(200, updatedVideo, "Video details updated successfully"));
 
+    } catch (error) {
         return next(error)
     }
 })
 
 const togglePublishStatus = asyncHandler(async (req, res, next) => {
     try {
+        // Get the videoId from the request parameters
         const videoId = req.params.videoId;
-        if (!videoId && !mongoose.Types.ObjectId.isValid(videoId)) {
-            return next(new ApiError(400, "videoId not found or Invalid video id!!"))
+
+        // Validate videoId: check if it exists and is a valid MongoDB ObjectId
+        if (!videoId || !mongoose.Types.ObjectId.isValid(videoId)) {
+            return next(new ApiError(400, "videoId not found or Invalid video id!!"));
         }
-        // check video exist or not
-        const video = await Video.findById(videoId)
+
+        // Check if the video exists in the database
+        const video = await Video.findById(videoId);
         if (!video) {
-            return next(new ApiError(500, "Something went wrong during finding video in mongoDB"))
+            return next(new ApiError(500, "Something went wrong during finding video in MongoDB"));
         }
-        // build status variable and assign value true or false
-        const status = video.isPublished === true ? false : true
 
-        // updating isPublish field in mongoDB
+        // Build the status variable: toggle the isPublished field
+        const status = video.isPublished === true ? false : true;
+
+        // Update the isPublished field in MongoDB
         const Published = await Video.findByIdAndUpdate(videoId,
-            {
-                $set: {
-                    isPublished: status
-                }
-            },
-            { new: true }
-        )
+            { $set: { isPublished: status } },
+            { new: true } // Return the updated document
+        );
+
+        // Check if the update was successful
         if (!Published) {
-            return next(new ApiError(500, "Something went wrong during updating isPublish field in mongoDB"))
+            return next(new ApiError(500, "Something went wrong during updating isPublish field in MongoDB"));
         }
 
-        return res.status(200).json(new ApiResponse(200, Published, "ispublished done successfully"))
+        // Return success response with the updated video details
+        return res.status(200).json(new ApiResponse(200, Published, "isPublished done successfully"));
 
     } catch (error) {
-        console.log({ code: error.statusCode, message: error.message });
         return next(error)
     }
 })
